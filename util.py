@@ -35,12 +35,20 @@ plt.rcParams['lines.color'] = 'b'
 plt.rcParams['axes.grid'] = True 
 
 def generate_data(window_size, classes, maximumClassCount):
-    # generate docstring 
     """
-    Generate X,y data from the MIT-BIH Arrhythmia Database
+    Generate X,y data from the MIT-BIH Arrhythmia Database in mitbih_database/ directory. 
+
+    Input:
     :param window_size: size of the sequence to be used for classification 
+    :param classes: list of classes to select for classification
+    :param maximumClassCount: maximum number of samples per class
+    
+    Output:
     :return: X, y
+    X: ECG data, numpy array of shape (n_patients, ecg_window_size)
+    y: labels, numpy array of shape (n_patients, )
     """
+
     # set path
     path = "mitbih_database/"
     window_size = window_size 
@@ -79,11 +87,11 @@ def generate_data(window_size, classes, maximumClassCount):
         signals = []
 
         with open(records[r], 'rt') as csvfile:
-            spamreader = csv.reader(csvfile, delimiter=',', quotechar='|') # read CSV file\
+            spamreader = csv.reader(csvfile, delimiter=',', quotechar='|') # read CSV file
             row_index = -1
             for row in spamreader:
                 if(row_index >= 0): # skip first row
-                    MLII_lead = int(row[1]) # MLII lead
+                    MLII_lead = int(row[1]) # Modified Limb Lead (MLII)
                     V5 = int(row[2]) # V5 lead
                     signals.insert(row_index, MLII_lead)
                 row_index += 1
@@ -142,11 +150,27 @@ def load_data():
 
 if __name__ == "__main__":
 
-    #classes = ['N', 'L', 'R', 'A', 'V', '/']
-    classes = ['V']
-    #X, y = generate_data(160, classes, 10000)
-    #save_data(X, y)
-    X, y = load_data()
+    N_PATIENTS = 48 
+    SAMPLING_RATE = 360 # Hz
+
+    ALL_BEAT_CLASSES = {"N": "Normal beat",
+                        "L": "Left bundle branch block beat",
+                        "R": "Right bundle branch block beat",
+                        "A": "Atrial premature beat",
+                        "S": "Premature or ectopic supraventricular beat",
+                        "V": "Premature ventricular contraction",
+                        "e": "Atrial escape beat", 
+                        "n": "Supraventricular escape beat",
+                        "E": "Ventricular escape beat",
+                        "Q": "Unclassifiable beat"}
+
+    windowDuration = 0.88 # seconds
+    windowWidthSamples = int(windowDuration * SAMPLING_RATE)
+    classes = ALL_BEAT_CLASSES.keys()
+    
+    X, y = generate_data(windowWidthSamples, classes, 10000)
+    save_data(X, y)
+    #X, y = load_data()
 
     print(X.shape, y.shape)
     print(X[0,:])
