@@ -1,0 +1,17 @@
+[
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "/Users/antonioglenn/Library/Arduino15/packages/SparkFun/hardware/apollo3/2.2.1/cores/arduino"
+  },
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "/Users/antonioglenn/Library/Arduino15/packages/SparkFun/hardware/apollo3/2.2.1/variants/SFE_ARTEMIS_NANO"
+  },
+  {
+    "Sourcefile": "/Users/antonioglenn/Desktop/code-and-projects/my-ecg/build/sketch/my-ecg.ino.cpp",
+    "Include": "",
+    "Includepath": null
+  }
+]

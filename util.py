@@ -29,43 +29,54 @@ wfdb.plot.plot_items(signal=signals, ann_samp=[annotation.sample])
 '''
 
 
-plt.rcParams["figure.figsize"] = (30,6)
+plt.rcParams["figure.figsize"] = (10,10)
 plt.rcParams['lines.linewidth'] = 1
 plt.rcParams['lines.color'] = 'b'
 plt.rcParams['axes.grid'] = True 
 
-def generate_data(window_size, classes, maximumClassCount):
+ALL_BEAT_CLASSES = {"N": "Normal beat",
+                    "L": "Left bundle branch block beat",
+                    "R": "Right bundle branch block beat",
+                    "A": "Atrial premature beat",
+                    "S": "Premature or ectopic supraventricular beat",
+                    "V": "Premature ventricular contraction",
+                    "e": "Atrial escape beat", 
+                    "n": "Supraventricular escape beat",
+                    "E": "Ventricular escape beat",
+                    "Q": "Unclassifiable beat"}
+
+def generate_data(window_size, classes, path="mitbih_database/"):
     """
-    Generate X,y data from the MIT-BIH Arrhythmia Database in mitbih_database/ directory. 
+    Generate X,y data for each patient ID from the MIT-BIH Arrhythmia Database in mitbih_database/ directory. 
 
     Input:
     :param window_size: size of the sequence to be used for classification 
     :param classes: list of classes to select for classification
-    :param maximumClassCount: maximum number of samples per class
-    
+    :param path: path to the mitbih_database/ directory    
+
     Output:
     :return: X, y
-    X: ECG data, numpy array of shape (n_patients, ecg_window_size)
+    X: ECG dictionary, key: patient ID, value: numpy array of shape (n_beats, ecg_window_size)
     y: labels, numpy array of shape (n_patients, )
     """
 
     # set path
-    path = "mitbih_database/"
+    path = path
     window_size = window_size 
-    maximumClassCount = maximumClassCount 
 
     classes = classes
     n_classes = len(classes)
     classCount = [0]*n_classes
 
-    X = list()
-    y = list()
+    X = dict() # key: patientID, value: list of patient's beats
+    y = dict() # key: patientID, value: list of patient's beat labels
 
     # Read files
     filenames = list(os.walk(path))[0][2]
 
     # Split and save .csv , .txt 
     records = list()
+    patientIDs = list()
     annotations = list()
     filenames.sort()
 
@@ -76,13 +87,14 @@ def generate_data(window_size, classes, maximumClassCount):
         # *.csv; ECG data are the .csv files
         if(file_extension == '.csv'):
             records.append(path + filename + file_extension)
+            patientIDs.append(int(filename))
 
         # *.txt; annotations are the .txt files
         elif(file_extension == '.txt'):
             annotations.append(path + filename + file_extension)
 
     # Records
-    for r in range(len(records)): # 48 records, loop through each patient record
+    for r, id in enumerate(patientIDs): # 48 records, loop through each patient record
     # for r in range(2, 3):
         signals = []
 
@@ -109,21 +121,105 @@ def generate_data(window_size, classes, maximumClassCount):
                 arrhythmia_type = next(splitted) # lastly get the Arrhythmia type 
                 if(arrhythmia_type in classes):
                     arrhythmia_index = classes.index(arrhythmia_type)
-                    if classCount[arrhythmia_index] > maximumClassCount: # avoid overfitting
-                        pass
-                    else:
-                        classCount[arrhythmia_index] += 1
-                        if(window_size < pos and pos < (len(signals) - window_size)):
-                            beat = signals[pos-window_size+1:pos+window_size]
-                            X.append(beat)
-                            y.append(arrhythmia_index)
+                    if(window_size < pos and pos < (len(signals) - window_size)):
+                        beat = signals[pos-window_size+1:pos+window_size]
+                        if X.get(id) is None:
+                            X[id] = list() 
+                            y[id] = list()
+                        X[id].append(beat)
+                        y[id].append(arrhythmia_type)
 
     return X, y
 
-    # convert to numpy array
 
-    X = np.array(X)
-    y = np.array(y)
+def plot_patient_beat(X, y, patientID, beat_index):
+    """
+    Plot patientID's beat
+
+    Input:
+    :param X: ECG dictionary, key: patient ID, value: numpy array of shape (n_beats, ecg_window_size)
+    :param y: labels, numpy array of shape (n_patients, )
+    :param patientID: patient ID
+    :param beat_index: beat index
+    """
+
+    plt.plot(X[patientID][beat_index])
+    plt.title('Patient ID: ' + str(patientID) + ', Beat: ' + str(beat_index) + ', Label: ' + ALL_BEAT_CLASSES[y[patientID][beat_index]], fontsize=20)
+    plt.show()
+
+def get_patient_beat(X, y, patientID, beat_index):
+    """
+    Get patientID's beat
+
+    Input:
+    :param X: ECG dictionary, key: patient ID, value: numpy array of shape (n_beats, ecg_window_size)
+    :param y: labels, numpy array of shape (n_patients, )
+    :param patientID: patient ID
+    :param beat_index: beat index
+
+    Output:
+    :return: beat, label
+    beat: numpy array of shape (1, ecg_window_size)
+    label: string
+    """
+
+    beat = np.array(X[patientID][beat_index])
+    label = y[patientID][beat_index]
+
+    return beat, label
+
+def generate_numpy_from_dict(X_dict, y_dict):
+    """
+    Generate numpy array from dictionary
+
+    Input:
+    :param X_dict: ECG dictionary, key: patient ID, value: numpy array of shape (n_beats, ecg_window_size)
+    :param y_dict: key: patient ID, value: labels, numpy array of shape (n_patients, )
+
+    Output:
+    :return: X, y
+    X: numpy array of shape (n_beats, ecg_window_size)
+    y: numpy array of shape (n_beats, )
+    """
+
+    X = np.array([])
+    y = np.array([])
+
+    for key in X_dict.keys():
+        if(X.size == 0):
+            X = np.array(X_dict[key])
+            y = np.array(y_dict[key])
+        else:
+            X = np.concatenate((X, np.array(X_dict[key])), axis=0)
+            y = np.concatenate((y, np.array(y_dict[key])), axis=0)
+
+    return X, y
+
+def read_arduino_ECG_data(file):
+    # generate docstring 
+    """
+    Read ECG data from .csv file generated from Arduino
+
+    Input:
+    :param file: path to .csv file
+
+    Output:
+    :return: signal
+    signal: numpy array of shape (n_samples, )
+    """
+
+    signal = np.array([]) 
+    with open(file, 'rt') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',', quotechar='|') # read CSV file
+        row_index = -1
+        for row in reader:
+            if(row_index >= 0): # skip first row
+                line = row[0].strip('"') 
+                lead_ECG = int(line) # Modified Limb Lead (MLII)
+                signal.append(lead_ECG)
+            row_index += 1
+
+    return signal
 
 def save_data(X, y):
     # save X and y using pickle
@@ -143,36 +239,13 @@ def load_data():
 
     # convert to numpy array 
 
-    X = np.array(X)
-    y = np.array(y)
 
     return X, y
 
 if __name__ == "__main__":
 
-    N_PATIENTS = 48 
-    SAMPLING_RATE = 360 # Hz
-
-    ALL_BEAT_CLASSES = {"N": "Normal beat",
-                        "L": "Left bundle branch block beat",
-                        "R": "Right bundle branch block beat",
-                        "A": "Atrial premature beat",
-                        "S": "Premature or ectopic supraventricular beat",
-                        "V": "Premature ventricular contraction",
-                        "e": "Atrial escape beat", 
-                        "n": "Supraventricular escape beat",
-                        "E": "Ventricular escape beat",
-                        "Q": "Unclassifiable beat"}
-
-    windowDuration = 0.88 # seconds
-    windowWidthSamples = int(windowDuration * SAMPLING_RATE)
-    classes = ALL_BEAT_CLASSES.keys()
-    
-    X, y = generate_data(windowWidthSamples, classes, 10000)
-    save_data(X, y)
-    #X, y = load_data()
-
-    print(X.shape, y.shape)
-    print(X[0,:])
+    path = "small_test_database/"
+    X, y = generate_data(160, ["N"], 1000000, path)
+    pass
 
 
