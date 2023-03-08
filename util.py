@@ -32,7 +32,7 @@ wfdb.plot.plot_items(signal=signals, ann_samp=[annotation.sample])
 plt.rcParams["figure.figsize"] = (10,10)
 plt.rcParams['lines.linewidth'] = 1
 plt.rcParams['lines.color'] = 'b'
-plt.rcParams['axes.grid'] = True 
+plt.rcParams['axes.grid'] = False
 
 ALL_BEAT_CLASSES = {"N": "Normal beat",
                     "L": "Left bundle branch block beat",
@@ -45,6 +45,9 @@ ALL_BEAT_CLASSES = {"N": "Normal beat",
                     "E": "Ventricular escape beat",
                     "Q": "Unclassifiable beat"}
 
+SAMPLING_FREQUENCY = (360) # Hz
+N_PATIENTS = 48 
+
 def generate_data(window_size, classes, path="mitbih_database/"):
     """
     Generate X,y data for each patient ID from the MIT-BIH Arrhythmia Database in mitbih_database/ directory. 
@@ -56,8 +59,8 @@ def generate_data(window_size, classes, path="mitbih_database/"):
 
     Output:
     :return: X, y
-    X: ECG dictionary, key: patient ID, value: numpy array of shape (n_beats, ecg_window_size)
-    y: labels, numpy array of shape (n_patients, )
+    X: ECG dictionary, key: patient ID, value: numpy array of shape (nBeats, ecgWindowSize)
+    y: labels, numpy array of shape (nPatients, )
     """
 
     # set path
@@ -96,6 +99,7 @@ def generate_data(window_size, classes, path="mitbih_database/"):
     # Records
     for r, id in enumerate(patientIDs): # 48 records, loop through each patient record
     # for r in range(2, 3):
+        print(f"Processing patient ID: {str(id)}")
         signals = []
 
         with open(records[r], 'rt') as csvfile:
@@ -119,62 +123,101 @@ def generate_data(window_size, classes, path="mitbih_database/"):
                 next(splitted)                   # first get the sample Time
                 pos = int(next(splitted))        # then get the Sample ID
                 arrhythmia_type = next(splitted) # lastly get the Arrhythmia type 
+                arrhythmia_type = np.array(arrhythmia_type).reshape(1,1)
                 if(arrhythmia_type in classes):
                     arrhythmia_index = classes.index(arrhythmia_type)
                     if(window_size < pos and pos < (len(signals) - window_size)):
                         beat = signals[pos-window_size+1:pos+window_size]
+                        beat = np.array(beat).reshape(1,len(beat))
                         if X.get(id) is None:
-                            X[id] = list() 
-                            y[id] = list()
-                        X[id].append(beat)
-                        y[id].append(arrhythmia_type)
+                            X[id] = beat
+                            y[id] = arrhythmia_type
+                        X[id] = np.concatenate((X[id],beat))
+                        y[id] = np.concatenate((y[id],arrhythmia_type))
 
     return X, y
 
 
-def plot_patient_beat(X, y, patientID, beat_index):
+def plot_patient_beat_dict(X_dict, y_dict, patientID, beat_index):
     """
-    Plot patientID's beat
+    Plot patientID's beat from dictionary X_dict and y_dict 
 
     Input:
-    :param X: ECG dictionary, key: patient ID, value: numpy array of shape (n_beats, ecg_window_size)
-    :param y: labels, numpy array of shape (n_patients, )
+    :param X: ECG dictionary, key: patient ID, value: numpy array of shape (nBeats, ecgWindowSize)
+    :param y: labels, numpy array of shape (nPatients, )
     :param patientID: patient ID
     :param beat_index: beat index
     """
 
-    plt.plot(X[patientID][beat_index])
-    plt.title('Patient ID: ' + str(patientID) + ', Beat: ' + str(beat_index) + ', Label: ' + ALL_BEAT_CLASSES[y[patientID][beat_index]], fontsize=20)
-    plt.show()
+    fig, ax = plt.subplots()
 
-def get_patient_beat(X, y, patientID, beat_index):
+    beat_label = y_dict[patientID][beat_index][0]
+    beat_description = ALL_BEAT_CLASSES[y_dict[patientID][beat_index][0]]
+    ax.set_title(f'Patient ID: {str(patientID)} Beat: {str(beat_index)} Label: {beat_description}', fontsize=20)
+    ax.text(0.75, 0.75, beat_label, fontsize=20, horizontalalignment='right', verticalalignment='center', transform=ax.transAxes)
+    ax.plot(X_dict[patientID][beat_index])
+    return fig, ax
+
+
+def get_patient_beat(X_dict, y_dict, patientID, beat_index):
     """
-    Get patientID's beat
+    Get patientID's single ECG beat at beat_index
 
     Input:
-    :param X: ECG dictionary, key: patient ID, value: numpy array of shape (n_beats, ecg_window_size)
-    :param y: labels, numpy array of shape (n_patients, )
+    :param X: ECG dictionary, key: patient ID, value: numpy array of shape (nBeats, ecgWindowSize)
+    :param y: labels, numpy array of shape (nPatients, )
     :param patientID: patient ID
     :param beat_index: beat index
 
     Output:
     :return: beat, label
     beat: numpy array of shape (1, ecg_window_size)
-    label: string
+    label: char
     """
 
-    beat = np.array(X[patientID][beat_index])
-    label = y[patientID][beat_index]
+    X_beat = np.array(X_dict[patientID][beat_index])
+    y_label = y_dict[patientID][beat_index]
 
-    return beat, label
+    return X_beat, y_label
 
-def generate_numpy_from_dict(X_dict, y_dict):
+
+def get_arrhythmia(X, y, arrhythmia_type):
     """
-    Generate numpy array from dictionary
+    Get arrhythmia_type beats for all patients
 
     Input:
     :param X_dict: ECG dictionary, key: patient ID, value: numpy array of shape (n_beats, ecg_window_size)
     :param y_dict: key: patient ID, value: labels, numpy array of shape (n_patients, )
+    :param arrhythmia: arrhythmia class
+
+    Output:
+    :return: X, y
+    X: numpy array of shape (n_beats, ecg_window_size)
+    y: numpy array of shape (n_beats, )
+    """
+
+    # if X and y are dictonary, convert to numpy array
+    if isinstance(X, dict):
+        X,y = generate_numpy_from_dict(X, y)    
+
+    arrhythmia_indices = np.where(y == arrhythmia_type)[0]
+
+    if arrhythmia_indices.size > 0: # if arrhythmia_type exists
+        arrhythmia = X[arrhythmia_indices,:]
+    else:
+        arrhythmia = np.array([])
+
+    return arrhythmia
+
+
+def generate_numpy_from_dict(X_dict, y_dict, include_arrhythmia=[]):
+    """
+    Generate ALL patient data in numpy array from X_dict.
+
+    Input:
+    :param X_dict: ECG dictionary, key: patient ID, value: numpy array of shape (n_beats, ecg_window_size)
+    :param y_dict: key: patient ID, value: labels, numpy array of shape (n_patients, )
+    :param inlude_arrhythmia: list of arrhythmia classes to include 
 
     Output:
     :return: X, y
@@ -187,13 +230,21 @@ def generate_numpy_from_dict(X_dict, y_dict):
 
     for key in X_dict.keys():
         if(X.size == 0):
-            X = np.array(X_dict[key])
-            y = np.array(y_dict[key])
+            if include_arrhythmia:
+                arrhythmia_indices = np.where(y_dict[key] == include_arrhythmia)[0]
+                X = X_dict[key][arrhythmia_indices,:]
+                y = y_dict[key][arrhythmia_indices]
         else:
-            X = np.concatenate((X, np.array(X_dict[key])), axis=0)
-            y = np.concatenate((y, np.array(y_dict[key])), axis=0)
+            if include_arrhythmia: # if arrhythmias to include
+                arrhythmia_indices = np.where(y_dict[key] == include_arrhythmia)[0]
+                X = np.concatenate( (X,X_dict[key][arrhythmia_indices,:]), axis=0)
+                y = np.concatenate( (y,y_dict[key][arrhythmia_indices]), axis=0) 
+            else:
+                X = np.concatenate((X, np.array(X_dict[key])), axis=0)
+                y = np.concatenate((y, np.array(y_dict[key])), axis=0)
 
     return X, y
+
 
 def read_arduino_ECG_data(file):
     # generate docstring 
@@ -221,24 +272,32 @@ def read_arduino_ECG_data(file):
 
     return signal
 
-def save_data(X, y):
+def getSingleSample(x,y,beat_index,class_index):
+    beat_index = beat_index
+    class_index = class_index # 0 = L; 1 = N; 2 = R; 3 = V
+    beat_num = np.where(y == class_index)[0][beat_index] 
+    sample = x[beat_num]
+    return sample
+
+
+def save_data(X, y,filename):
     # save X and y using pickle
-    with open('X.pickle', 'wb') as f:
+    with open(filename + '_X.pickle', 'wb') as f:
         pickle.dump(X, f)
 
-    with open('y.pickle', 'wb') as f:
+    with open(filename + '_Y.pickle', 'wb') as f:
         pickle.dump(y, f)
 
-def load_data():
+
+def load_data(filename):
     # load pickle
-    with open('X.pickle', 'rb') as f:
+    with open(filename + '_X.pickle', 'rb') as f:
         X = pickle.load(f)
 
-    with open('y.pickle', 'rb') as f:
+    with open(filename + '_Y.pickle', 'rb') as f:
         y = pickle.load(f)
 
     # convert to numpy array 
-
 
     return X, y
 
