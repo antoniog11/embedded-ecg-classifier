@@ -2,6 +2,7 @@
 small_test_database/*
 mitbih_database/*
 *.pickle
+mitbih_database.zip
 
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
