@@ -1,0 +1,10 @@
+# Ignore data directories and pickle files
+small_test_database/*
+mitbih_database/*
+*.pickle
+
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+__pycache__/
+.ecg-classif/
+.DS_Store
