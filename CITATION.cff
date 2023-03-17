@@ -1,1 +1,8 @@
-
+@misc{Glenn2023,
+  author = {Antonio Glenn, Nicole Sullivan},
+  title = {Embedded ECG Classification},
+  year = {2023},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/antoniog11/embedded-ecg-classifier}},
+}
