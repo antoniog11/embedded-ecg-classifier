@@ -1,8 +1,9 @@
-@misc{Glenn2023,
-  author = {Antonio Glenn, Nicole Sullivan},
-  title = {Embedded ECG Classification},
-  year = {2023},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/antoniog11/embedded-ecg-classifier}},
-}
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Glenn"
+  given-names: "Antonio"
+- family-names: "Sullivan"
+  given-names: "Nicole"
+title: "Embedded ECG Classifier"
+url: "https://github.com/antoniog11/embedded-ecg-classifier"
